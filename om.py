@@ -59,18 +59,10 @@ def _get_probability_matrix():
         yield np.array(matrix), k
 
 
-def _get_alpha(alfa, k):
+def _get_alpha_vector(alfa, k):
     for r in [0.25, 0.5, 0.77, 0.99]:
         a = alfa * r
         yield [a] + (k + 3) * [0], a
-
-
-def _get_i_matrix(k):
-    axis = k + 4
-    matrix = []
-    for a in range(axis):
-        matrix.append([1 if a == b else 0 for b in range(axis)])
-    return np.array(matrix)
 
 
 def _matrix_to_vector(matrix):
@@ -89,9 +81,9 @@ def analytics(alfa):
 
     for p_matrix, k in _get_probability_matrix():
         content += f"\n> K: {k}\n"
-        for a_vector, a in _get_alpha(alfa, k):
+        for a_vector, a in _get_alpha_vector(alfa, k):
             pt_matrix = p_matrix.transpose()
-            i_matrix = _get_i_matrix(k)
+            i_matrix = np.diag((k + 4) * [1])
             i_minus_pt = i_matrix - pt_matrix
             lam = _matrix_to_vector(np.linalg.inv(i_minus_pt) * a_vector)
             content += f"{a}:\t{lam}\n"
