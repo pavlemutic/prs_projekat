@@ -4,6 +4,8 @@ from copy import deepcopy
 
 import numpy as np
 
+verbose = False
+
 
 def _error(msg, curr_val):
     print(f"{msg} Trenutna vrednost: '{curr_val}'. Vidi -h / --help za vise informacija.")
@@ -11,7 +13,6 @@ def _error(msg, curr_val):
 
 
 def _parse_args():
-    # implementiraj verobise -v, koji ce da printa svaku matricu i svaki korak
     parser = argparse.ArgumentParser(description="Izracunavanje sistema otvorene mreze.")
     parser.add_argument("-m", "--mod", dest="mod", required=True,
                         help="Pokrece zeljeni mod, moguce opcije: analiticki, stacionarni, simulacija. "
@@ -21,9 +22,8 @@ def _parse_args():
                         help="Vrednost ulaznog toka - alfa.",
                         )
 
-    # parser.add_argument("-k", "--korisnicki-diskovi", dest="k", required=True, type=int,
-    #                     help="Broj korisnickih diskova, min 2, max 5.",
-    #                     )
+    parser.add_argument("-v", "--verbose", dest="verbose", action="store_true",
+                        help="Rezim rada za lakse debagovanje, svaki korak se ispisuje na izlaz.")
 
     # args = parser.parse_args(["-m", "analiticki", "-a", "8"])
     args = parser.parse_args()
@@ -34,10 +34,12 @@ def _parse_args():
     if args.alfa < 1:
         _error("error: Vrednost ulaznog toka mora biti pozitivan broj.", args.alfa)
 
-    # if args.k not in [2, 3, 4, 5]:
-    #     _error("error: Broj korisnickih diskova mora biti minimalno 2 i maksimalno 5.", args.k)
-
     return args
+
+
+def _verbose_out(content):
+    if verbose:
+        print(content)
 
 
 def _get_probability_matrix():
@@ -56,13 +58,16 @@ def _get_probability_matrix():
         for _ in range(k):
             matrix.append((k + 4) * [0])
 
+        _verbose_out(f"matrica verovatnoca:\n{matrix}")
         yield np.array(matrix), k
 
 
 def _get_alpha_vector_percents(alfa, k, percents):
     for r in percents:
         a = alfa * r
-        yield [a] + (k + 3) * [0], a, f"{int(r * 100)}%"
+        alpha_vector = [a] + (k + 3) * [0]
+        _verbose_out(f"alfa vektor:\n{alpha_vector}")
+        yield alpha_vector, a, f"{int(r * 100)}%"
 
 
 def _get_alpha_vector_from_range(alpha_range, k):
@@ -106,6 +111,7 @@ def analytics(**kwargs):
             i_minus_pt = i_matrix - pt_matrix
             lam = _matrix_to_vector(np.linalg.inv(i_minus_pt) * a_vector)
             content += f"[{percent}] {a}:\t{lam}\n"
+            _verbose_out(f"k: {k}, alfa: {a}, lambda: {lam}")
 
     _save_to_file("protoci_analiticki", content)
 
@@ -126,6 +132,7 @@ def simulation_100(**kwargs):
                 lambdas_list.append(_matrix_to_vector(np.linalg.inv(i_minus_pt) * a_vector))
             avg_lambda = _get_average_vector(lambdas_list, k)
             content += f"({k}, {a}):\t{avg_lambda}\n"
+            _verbose_out(f"k: {k}, alfa: {a}, lambda: {avg_lambda}")
 
     _save_to_file("rezultati_simulacija_usrednjeno", content)
 
@@ -158,4 +165,5 @@ if __name__ == '__main__':
     r = [0.25, 0.5, 0.77, 0.99]
 
     input_args = _parse_args()
+    verbose = input_args.verbose
     mods.get(input_args.mod)(alfa=input_args.alfa, r=r)
