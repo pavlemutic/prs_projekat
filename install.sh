@@ -1,5 +1,6 @@
 python3 -m venv .venv
-sh .venv/activate
-python setup.py
-om -h
+source .venv/bin/activate
+pip install --upgrade pip
+pip install -r requirements.txt
+python om.py --help
 exec $SHELL
