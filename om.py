@@ -28,7 +28,7 @@ def _parse_args():
     # args = parser.parse_args(["-m", "analiticki", "-a", "8"])
     args = parser.parse_args()
 
-    if args.mod not in ["analiticki", "simulacija", "stacionarni"]:
+    if args.mod not in ["alfas", "analiticki", "simulacija", "stacionarni"]:
         _error("error: Mod rada mora biti 'analiticki' ili 'simulacija'.", args.mod)
 
     if args.alfa < 1:
@@ -65,7 +65,7 @@ def _get_probability_matrix():
 def _get_alpha_vector_percents(alfa, k, percents):
     for r in percents:
         a = alfa * r
-        alpha_vector = [a] + (k + 3) * [0]
+        alpha_vector = [[a]] + (k + 3) * [[0]]
         _verbose_out(f"alfa vektor:\n{alpha_vector}")
         yield alpha_vector, a, f"{int(r * 100)}%"
 
@@ -75,8 +75,8 @@ def _get_alpha_vector_from_range(alpha_range, k):
         yield [alpha / 100] + (k + 3) * [0], alpha / 100
 
 
-def _matrix_to_vector(matrix):
-    return [round(row[0], 2) for row in matrix]
+def _vector_to_array(vector):
+    return [round(row[0], 2) for row in vector]
 
 
 def _get_average_vector(lambdas_list, k):
@@ -91,11 +91,51 @@ def _get_average_vector(lambdas_list, k):
     return average_vector
 
 
-def _save_to_file(file_name, content):
+def _save_to_file(file_name, content, *args, **kwargs):
     path = Path(__file__).parent / "output" / file_name
     with open(path, "w") as outfile:
         outfile.write(content)
     print(f"Upisan fajl: {path}")
+
+
+def get_lambda(alfa, k, p_matrix):
+    a_vector = [alfa] + (k + 3) * [0]
+    pt_matrix = p_matrix.transpose()
+    i_matrix = np.diag((k + 4) * [1])
+    i_minus_pt = i_matrix - pt_matrix
+    return _vector_to_array(np.linalg.inv(i_minus_pt) * a_vector)
+
+
+def alfas(*args, **kwargs):
+    mis = [200, 100, 66.67, 66.67, 40, 40, 40, 40, 40]
+    servers = ["p", "d1", "d2", "d3", "k1", "k2", "k3", "k4", "k5"]
+    content = f"nalazenje alfe_o\n"
+    
+    for p_matrix, k in _get_probability_matrix():
+        content += f"\nK: {k}\n"
+        alfa_max_last = 0
+
+        alfa_found = False
+        for alfa in range(1, 1000):
+            if not alfa_found:
+                alfa_max_current = alfa
+                lam = get_lambda(alfa_max_current, k, p_matrix)
+
+                for index, lam_item in enumerate(lam):
+                    if lam_item / mis[index] > 1:
+                        alfa_found = True
+                        content += f"alfa max: {alfa_max_last}\n"
+                        lam_last = get_lambda(alfa_max_last, k, p_matrix)
+                        ro = lam_last[index] / mis[index]
+                        content += f"kritican: {servers[index]}, ro: {ro}\n"
+
+                        content += f"poslednji:\n"
+                        content += f"alfa: {alfa_max_current}, ro: {lam_item / mis[index]}\n"
+                        break
+                
+                alfa_max_last = alfa_max_current
+
+    _save_to_file("alfe_o", content)
 
 
 def analytics(**kwargs):
@@ -107,9 +147,10 @@ def analytics(**kwargs):
         content += f"\n> K: {k}\n"
         for a_vector, a, percent in _get_alpha_vector_percents(alfa, k, r):
             pt_matrix = p_matrix.transpose()
-            i_matrix = np.diag((k + 4) * [1])
+            i_matrix = np.identity(k + 4)
             i_minus_pt = i_matrix - pt_matrix
-            lam = _matrix_to_vector(np.linalg.inv(i_minus_pt) * a_vector)
+            lam_matrix = np.matmul(np.linalg.inv(i_minus_pt), a_vector)
+            lam = _vector_to_array(lam_matrix)
             content += f"[{percent}] {a}:\t{lam}\n"
             _verbose_out(f"k: {k}, alfa: {a}, lambda: {lam}")
 
@@ -117,24 +158,7 @@ def analytics(**kwargs):
 
 
 def simulation_100(**kwargs):
-    alfa = kwargs.pop("alfa")
-    r = kwargs.pop("r")
-    reps = 100
-    content = f"simulacija usrednjenih vrednosti od 100 ponavljanja za alfa: {alfa}\n\n"
-
-    for p_matrix, k in _get_probability_matrix():
-        for a_vector, a, percent in _get_alpha_vector_percents(alfa, k, r):
-            lambdas_list = []
-            for _ in range(reps):
-                pt_matrix = p_matrix.transpose()
-                i_matrix = np.diag((k + 4) * [1])
-                i_minus_pt = i_matrix - pt_matrix
-                lambdas_list.append(_matrix_to_vector(np.linalg.inv(i_minus_pt) * a_vector))
-            avg_lambda = _get_average_vector(lambdas_list, k)
-            content += f"({k}, {a}):\t{avg_lambda}\n"
-            _verbose_out(f"k: {k}, alfa: {a}, lambda: {avg_lambda}")
-
-    _save_to_file("rezultati_simulacija_usrednjeno", content)
+    pass
 
 
 def stationary(**kwargs):
@@ -148,7 +172,7 @@ def stationary(**kwargs):
             pt_matrix = p_matrix.transpose()
             i_matrix = np.diag((k + 4) * [1])
             i_minus_pt = i_matrix - pt_matrix
-            lam = _matrix_to_vector(np.linalg.inv(i_minus_pt) * a_vector)
+            lam = _vector_to_array(np.linalg.inv(i_minus_pt) * a_vector)
             out = round(lam[-1] * k, 1)
             content += f"{a}\t{out}\t{round(out - a, 1)}\n"
 
@@ -157,12 +181,13 @@ def stationary(**kwargs):
 
 if __name__ == '__main__':
     mods = {
+        "alfas": alfas,
         "analiticki": analytics,
         "simulacija": simulation_100,
         "stacionarni": stationary,
     }
 
-    r = [0.25, 0.5, 0.77, 0.99]
+    r = [0.25, 0.5, 0.77, 0.99, 1]
 
     input_args = _parse_args()
     verbose = input_args.verbose
