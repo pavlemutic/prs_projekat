@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from tabulate import tabulate
 import numpy as np
 
@@ -6,17 +8,24 @@ from src.iteration import Iteration
 from src import helpers as hlp
 
 
+def save_to_file(file_name, content):
+    path = Path(__file__).parent / "output" / file_name
+    with open(path, "w") as outfile:
+        outfile.write(content)
+    print(f"Upisan fajl: {path}")
+
+
 def analytics_alpha_max():
     content = "Alfa Maks u zavisnosti od K, sa kriticnim resursom.\n\n"
     results = []
 
-    for p_matrix, k in system.probability_matrix:
+    for p_matrix, k in system.gen_probability_matrix():
         alfa_max_last = 0
 
         for alpha in range(1, 1000):
             if system.alpha_max.get(k):
                 break
-            a_vector = hlp.get_alpha_vector(alpha, k)
+            a_vector = np.array([[alpha]] + (k + 3) * [[0]])
             lam, _ = hlp.calculate_lambda(a_vector, p_matrix, k)
             for index, lam_item in enumerate(lam):
                 if lam_item / system.mis[index] > 1:
@@ -27,55 +36,56 @@ def analytics_alpha_max():
             alfa_max_last = alpha
 
     content += tabulate(results, headers=["K", "Alfa Maks", "Kriticni resurs"])
-    hlp.save_to_file("alfa_maks", content)
+    save_to_file("alfa_maks", content)
 
 
 def analytics_lambdas():
     content = "Protok kroz servere u funkciji od alfa."
 
-    for p_matrix, k in system.probability_matrix:
+    for p_matrix, k in system.gen_probability_matrix():
         results = []
         a_max = system.alpha_max.get(k)
         content += f"\n\nAlpha MAX: {a_max}\n"
-        for a_vector, percent in system.alpha_vector(a_max, k):
+        for a_vector, percent in system.gen_alpha_vector(a_max, k):
             lam_vector, lam_array = hlp.calculate_lambda(a_vector, p_matrix, k)
-            iter_name = Iteration.get_iteration_name(k, a_vector)
-            iteration = Iteration(name=iter_name, lambdas=lam_vector)
-            iteration.ro = [lam / mi for lam, mi in zip(lam_array, system.mis)]
-            system.iterations[iter_name] = iteration
+            iteration = Iteration(k=k, a_vector=a_vector)
+            iteration.lam = lam_vector
+            iteration.ro = np.array([lam / mi for lam, mi in zip(lam_array, system.mis)])
+            system.iterations[iteration.name] = iteration
 
-            results += [[f"[{percent}] {iter_name}"] + lam_array]
+            results += [[f"[{percent}] {iteration.name}"] + lam_array]
 
-        content += tabulate(results,
-                            headers=["%, K, Alpha"] + system.server_names[0:k + 4])
+        headers = ["%, K, Alpha"] + system.server_names[:k + 4]
+        content += tabulate(results, headers=headers)
 
-    hlp.save_to_file("protoci_analiticki", content)
+    save_to_file("protoci_analiticki", content)
 
 
 def analytics_jackson():
-    # U, J, T
     content = "Iskoriscenja resursa, prosecan broj poslova u svakom resursu i vreme odziva."
 
-    for p_matrix, k in system.probability_matrix:
+    for p_matrix, k in system.gen_probability_matrix():
         results = []
         a_max = system.alpha_max.get(k)
         content += f"\n\nAlpha MAX: {a_max}\n"
-        for a_vector, percent in system.alpha_vector(a_max, k):
-            iter_name = Iteration.get_iteration_name(k, a_vector)
-            iteration = system.iterations.get(iter_name)
+        for a_vector, percent in system.gen_alpha_vector(a_max, k):
+            iteration = system.get_iteration(k=k, a=a_vector)
+            iteration.u = np.matmul(system.s_matrix(k), iteration.lam)
+            iteration.j = np.array(list(map(lambda ro: ro / (1 - ro), iteration.ro_array)))
+            iteration.r = [j / x for j, x in zip(iteration.j_array, iteration.lam_array)]
 
-            iteration.u = np.matmul(system.s_matrix(k), iteration.lambdas)
-            iteration.j = list(map(lambda ro: ro / (1 - ro), iteration.ro))
-            iteration.r = [j / x for j, x in zip(iteration.j, list(iteration.lambdas))]
+            results += [[iteration.name, "MI"] + system.mis[:k + 4]]
+            results += [[iteration.name, "LAM"] + iteration.lam_array]
+            results += [[iteration.name, "RO"] + iteration.ro_array]
+            results += [[iteration.name, "U"] + iteration.u_array]
+            results += [[iteration.name, "J"] + iteration.j_array]
+            results += [[iteration.name, "R(s)"] + iteration.r_array]
+            results += [[]]
 
-            results += [[iter_name, "U"] + hlp.vector_to_array(iteration.u)]
-            results += [[iter_name, "J"] + iteration.j]
-            results += [[iter_name, "RO"] + iteration.ro]
-            results += [[iter_name, "R"] + iteration.r]
+        headers = ["K, Alpha", "Metric"] + system.server_names[:k + 4]
+        content += tabulate(results, headers=headers)
 
-        content += tabulate(results, headers=["K, Alpha", "Metric"] + system.server_names[0:k + 4])
-
-    hlp.save_to_file("rezultati_analiticki", content)
+    save_to_file("rezultati_analiticki", content)
 
 
 if __name__ == '__main__':

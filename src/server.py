@@ -1,18 +1,13 @@
 class Server:
-    def __init__(self, name, mi=None, s=None, parallel=False):
+    def __init__(self, name, mi=None, s=None):
         self._name = name
         self._mi = mi
         self._s = self._convert_to_sec(s)
-        self._lam = []
-        self._parallel = parallel
-        # self._ro = lam / mi if mi and lam else None
 
     def __repr__(self):
         return f"{self.name}:\n" \
                f"\tmi: {self.mi}\n" \
-               f"\ts: {self.s}\n" \
-               f"\tlam: {self.lam}\n" \
-               f"\tparallel: {self.parallel}\n"
+               f"\ts: {self.s}\n"
 
     @property
     def name(self):
@@ -24,7 +19,7 @@ class Server:
             return self._mi
 
         if self._s:
-            self._mi = 1 / self._s
+            self._mi = round(1 / self._s, 2)
             return self._mi
 
     @property
@@ -33,25 +28,8 @@ class Server:
             return self._s
 
         if self._mi:
-            self._s = 1 / self._mi
+            self._s = round(1 / self._mi, 2)
             return self._s
-
-    @property
-    def lam(self):
-        return self._lam
-
-    # @property
-    # def ro(self):
-    #     if self._ro:
-    #         return self._ro
-    #
-    #     if self._mi and self._lam:
-    #         self._ro = self._lam / self._mi
-    #         return self._ro
-
-    @property
-    def parallel(self):
-        return self._parallel
 
     @staticmethod
     def _convert_to_sec(value):
