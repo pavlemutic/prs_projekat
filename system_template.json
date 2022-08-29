@@ -5,38 +5,47 @@
   "percentiles": [0.25, 0.5, 0.77, 0.99],
   "servers": [
     {
+      "id": 0,
       "name": "P",
       "s": "5ms"
     },
     {
+      "id": 1,
       "name": "D1",
       "s": "10ms"
     },
     {
+      "id": 2,
       "name": "D2",
       "s": "15ms"
     },
     {
+      "id": 3,
       "name": "D3",
       "s": "15ms"
     },
     {
+      "id": 4,
       "name": "Dk1",
       "s": "25ms"
     },
     {
+      "id": 5,
       "name": "Dk2",
       "s": "25ms"
     },
     {
+      "id": 6,
       "name": "Dk3",
       "s": "25ms"
     },
     {
+      "id": 7,
       "name": "Dk4",
       "s": "25ms"
     },
     {
+      "id": 8,
       "name": "Dk5",
       "s": "25ms"
     }

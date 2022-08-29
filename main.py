@@ -5,6 +5,7 @@ import numpy as np
 
 from src.system import System
 from src.iteration import Iteration
+from src.simulator import Simulator
 from src import helpers as hlp
 
 
@@ -46,6 +47,11 @@ def analytics_lambdas():
         results = []
         a_max = system.alpha_max.get(k)
         content += f"\n\nAlpha MAX: {a_max}\n"
+
+        for row_line, row in enumerate(p_matrix):
+            server = system.get_server_by_id(row_line)
+            server.next_servers[k] = {a: b for a, b in zip(system.server_names[:k + 4], row)}
+
         for a_vector, percent in system.gen_alpha_vector(a_max, k):
             lam_vector, lam_array = hlp.calculate_lambda(a_vector, p_matrix, k)
             iteration = Iteration(k=k, a_vector=a_vector)
@@ -91,9 +97,14 @@ def analytics_jackson():
 if __name__ == '__main__':
     system = System(template_path="system_template.json")
 
-    # for server in system.servers:
-    #     print(server)
-
     analytics_alpha_max()
     analytics_lambdas()
     analytics_jackson()
+
+    simulator = Simulator(system)
+    max_time = 0.5 * 60 * 60  # seconds
+    # max_time = 0.1  # seconds
+    simulator.start(alpha=20, k=2, max_time=max_time)
+
+    # for server in system.servers:
+    #     print(server)

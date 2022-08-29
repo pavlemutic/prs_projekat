@@ -8,7 +8,17 @@ from src.server import Server
 from src.iteration import Iteration
 
 
-class System:
+class Singleton(type):
+    _instances = {}
+
+    def __call__(cls, *args, **kwargs):
+        if cls not in cls._instances:
+            instance = super().__call__(*args, **kwargs)
+            cls._instances[cls] = instance
+        return cls._instances[cls]
+
+
+class System(metaclass=Singleton):
 
     def __init__(self, template_path):
         with open(Path(template_path), "r") as template_file:
@@ -24,6 +34,7 @@ class System:
 
         self._alpha_max = {}
         self.iterations = {}
+        self.k = 0
 
     @property
     def name(self):
@@ -57,6 +68,10 @@ class System:
     def ss(self):
         return [server.s for server in self._servers]
 
+    @property
+    def is_active(self):
+        return True in [server.active for server in self.servers][:self.k+4]
+
     def gen_probability_matrix(self, k=None):
         k_array = k if k else self.multiplication
 
@@ -81,9 +96,25 @@ class System:
     def s_matrix(self, k):
         return np.diag(self.ss[0:k+4])
 
+    def get_server_by_name(self, name):
+        try:
+            return [server for server in self.servers if server.name == name][0]
+        except IndexError:
+            raise NameError(f"System does not have server named '{name}'")
+
+    def get_server_by_id(self, server_id):
+        try:
+            return [server for server in self.servers if server.id == server_id][0]
+        except IndexError:
+            raise NameError(f"System does not have server with ID '{server_id}'")
+
     def get_iteration(self, name=None, k=None, a=None):
         if not (name or k and list(a)):
             raise AttributeError("'name' or 'k' and 'a_vector' must be provided.")
 
         iter_name = name if name else Iteration.get_iteration_name(k, a)
         return self.iterations.get(iter_name)
+
+    def set_max_time(self, max_time):
+        for server in self.servers:
+            server.max_execution_time = max_time
