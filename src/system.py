@@ -24,59 +24,35 @@ class System(metaclass=Singleton):
         with open(Path(template_path), "r") as template_file:
             template_dict = json.load(template_file)
 
-        self._name = template_dict.get("name", "default_system")
+        self.name = template_dict.get("name", "default_system")
         self._mul_min = template_dict.get("multiplication_min", 1)
         self._mul_max = template_dict.get("multiplication_max", 2)
-        self._multiplication = range(self._mul_min, self._mul_max + 1)
-        self._percentiles = template_dict.get("percentiles", [])
-        self._servers = [Server(**server) for server in template_dict.get("servers", [])]
-        self._probability_matrix_core = np.array(template_dict.get("probability_matrix_core", []))
+        self.multiplication = range(self._mul_min, self._mul_max + 1)
+        self.percentiles = template_dict.get("percentiles", [])
+        self.servers = [Server(**server) for server in template_dict.get("servers", [])]
+        self.probability_matrix_core = np.array(template_dict.get("probability_matrix_core", []))
 
-        self._alpha_max = {}
+        self.alpha_max = {}
         self.iterations = {}
         self.k = 0
 
     @property
-    def name(self):
-        return self._name
-
-    @property
-    def multiplication(self):
-        return self._multiplication
-
-    @property
-    def percentiles(self):
-        return self._percentiles
-
-    @property
-    def servers(self):
-        return self._servers
-
-    @property
-    def alpha_max(self):
-        return self._alpha_max
-
-    @property
     def server_names(self):
-        return [server.name for server in self._servers]
+        return [server.name for server in self.servers]
 
     @property
     def mis(self):
-        return [server.mi for server in self._servers]
+        return [server.mi for server in self.servers]
 
     @property
     def ss(self):
-        return [server.s for server in self._servers]
-
-    @property
-    def is_active(self):
-        return True in [server.active for server in self.servers][:self.k+4]
+        return [server.s for server in self.servers]
 
     def gen_probability_matrix(self, k=None):
         k_array = k if k else self.multiplication
 
         for k in k_array:
-            matrix = deepcopy(self._probability_matrix_core)
+            matrix = deepcopy(self.probability_matrix_core)
 
             for _ in range(k):
                 # add columns
@@ -114,7 +90,3 @@ class System(metaclass=Singleton):
 
         iter_name = name if name else Iteration.get_iteration_name(k, a)
         return self.iterations.get(iter_name)
-
-    def set_max_time(self, max_time):
-        for server in self.servers:
-            server.max_execution_time = max_time

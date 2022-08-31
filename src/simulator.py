@@ -1,5 +1,4 @@
-from pathlib import Path
-from random import randint
+from numpy.random import default_rng as random_gen
 
 from src.event import Event
 
@@ -8,45 +7,35 @@ class Simulator:
 
     def __init__(self, system):
         self.system = system
-        self.simulation_time = 0
-        self.all_events = []
+        self.metrics = ["mi", "s", "lam", "ro", "u", "j", "r"]
+        self.results = {}
 
-    @property
-    def events_count(self):
-        return len(self.all_events)
+    def _reset_counters(self):
+        for server in self.system.servers[:self.system.k + 4]:
+            server.reset_counters()
 
-    def start(self, alpha, k, max_time=0):
-        content = "Simulacija otvorene mreze.\n"
-        self.system.k = k
+    def _reset_calculations(self):
+        for server in self.system.servers[:self.system.k + 4]:
+            server.reset_calculations()
 
-        if max_time:
-            self.system.set_max_time(max_time)
+    def start(self, alpha, simulation_time):
+        simulated_time = 0
+        self._reset_counters()
 
-        while self.simulation_time < max_time:
-            event_time = randint(1, int(1 / alpha * 1000)) / 1000
-            event = Event(self.system, alpha, event_time)
-            self.all_events.append(event)
-            if self.events_count % alpha == 0:
-                self.simulation_time = self.events_count / alpha
+        while simulated_time < simulation_time:
+            for _ in range(random_gen().poisson(alpha)):
+                Event(self.system).go_next("P")
+            simulated_time += 1  # seconds
 
-            server = self.system.get_server_by_name("P")
-            server.process_event(event)
+        for server in self.system.servers[:self.system.k + 4]:
+            server.calculate_simulation_results(simulation_time)
 
-        content += f"\nALPHA: {alpha}\n"
-        content += f"INPUT EVENTS: {self.events_count}\n"
-        content += f"AVG EVENT TIME: {sum([event.total_time for event in self.all_events]) / self.events_count}\n"
-
-        total_time = self.all_events[-1].total_time
-        for event in self.all_events[:-1]:
-            total_time += event.event_time
-
-        content += f"TOTAL TIME: {total_time}s -> {total_time / 1800} min\n"
-
-        for server in self.system.servers[:k + 4]:
-            content += f"{server.get_statistic()}\n"
-
-        path = Path(__file__).parent.parent / "output" / "rezultati_simulacija"
-        with open(path, "w") as outfile:
-            outfile.write(content)
-        print(f"Upisan fajl: {path}")
-
+    def get_results(self, alpha):
+        table = []
+        for metric in self.metrics:
+            line = [f"{self.system.k}, {round(alpha, 2)}", metric.upper()]
+            for server in self.system.servers[:self.system.k + 4]:
+                line.append(getattr(server, f"{metric}_sim"))
+            table.append(line)
+        self._reset_calculations()
+        return table

@@ -1,7 +1,9 @@
 from pathlib import Path
+from datetime import datetime
 
 from tabulate import tabulate
 import numpy as np
+import matplotlib.pyplot as plt
 
 from src.system import System
 from src.iteration import Iteration
@@ -9,16 +11,30 @@ from src.simulator import Simulator
 from src import helpers as hlp
 
 
+def _output_file():
+    return Path(__file__).parent / "output"
+
+
 def save_to_file(file_name, content):
-    path = Path(__file__).parent / "output" / file_name
+    path = _output_file() / "files" / file_name
     with open(path, "w") as outfile:
         outfile.write(content)
     print(f"Upisan fajl: {path}")
 
 
+def save_figure(data):
+    plt.plot(data.get("k"), data.get("a"))
+    plt.title('A-max(K)')
+    plt.xlabel('K')
+    plt.ylabel('A-max')
+    path = _output_file() / "figures" / "graph_a-max_k.png"
+    plt.savefig(path)
+
+
 def analytics_alpha_max():
     content = "Alfa Maks u zavisnosti od K, sa kriticnim resursom.\n\n"
     results = []
+    graph = {"a": [], "k": []}
 
     for p_matrix, k in system.gen_probability_matrix():
         alfa_max_last = 0
@@ -33,11 +49,14 @@ def analytics_alpha_max():
                     system.alpha_max[k] = alfa_max_last
                     server_name = system.server_names[index]
                     results += [[k, alfa_max_last, server_name]]
+                    graph["a"].append(alfa_max_last)
+                    graph["k"].append(k)
                     break
             alfa_max_last = alpha
 
     content += tabulate(results, headers=["K", "Alfa Maks", "Kriticni resurs"])
     save_to_file("alfa_maks", content)
+    save_figure(graph)
 
 
 def analytics_lambdas():
@@ -81,6 +100,7 @@ def analytics_jackson():
             iteration.r = [j / x for j, x in zip(iteration.j_array, iteration.lam_array)]
 
             results += [[iteration.name, "MI"] + system.mis[:k + 4]]
+            results += [[iteration.name, "S"] + system.ss[:k + 4]]
             results += [[iteration.name, "LAM"] + iteration.lam_array]
             results += [[iteration.name, "RO"] + iteration.ro_array]
             results += [[iteration.name, "U"] + iteration.u_array]
@@ -94,6 +114,30 @@ def analytics_jackson():
     save_to_file("rezultati_analiticki", content)
 
 
+def simulation(simulation_time=1800, repeats=1):
+    content = f"Simulacija u trajanju od {round(simulation_time / 3600, 2)}h i {repeats} ponavljanja."
+    simulator = Simulator(system)
+    start_time = datetime.now()
+
+    for p_matrix, k in system.gen_probability_matrix():
+        results = []
+        system.k = k
+        a_max = system.alpha_max.get(k)
+        content += f"\n\nAlpha MAX: {a_max}\n"
+        for r in system.percentiles:
+            alpha = a_max * r
+            for _ in range(repeats):
+                simulator.start(alpha=alpha, simulation_time=simulation_time)
+            results += simulator.get_results(alpha)
+            results += [[]]
+
+        headers = ["K, Alpha", "Metric"] + system.server_names[:k + 4]
+        content += tabulate(results, headers=headers)
+
+    save_to_file(f"rezultati_simulacija_{repeats}x", content)
+    print(f"Simulation time: {datetime.now() - start_time}")
+
+
 if __name__ == '__main__':
     system = System(template_path="system_template.json")
 
@@ -101,10 +145,5 @@ if __name__ == '__main__':
     analytics_lambdas()
     analytics_jackson()
 
-    simulator = Simulator(system)
-    max_time = 0.5 * 60 * 60  # seconds
-    # max_time = 0.1  # seconds
-    simulator.start(alpha=20, k=2, max_time=max_time)
-
-    # for server in system.servers:
-    #     print(server)
+    # simulation()
+    simulation(repeats=3)
