@@ -1,3 +1,4 @@
+from multiprocessing import Pool
 from pathlib import Path
 from datetime import datetime
 
@@ -8,6 +9,7 @@ import matplotlib.pyplot as plt
 from src.system import System
 from src.iteration import Iteration
 from src.simulator import Simulator
+from src.prs import ParallelResultsStorage
 from src import helpers as hlp
 
 
@@ -89,7 +91,7 @@ def analytics_lambdas():
 def analytics_jackson():
     content = "Iskoriscenja resursa, prosecan broj poslova u svakom resursu i vreme odziva."
 
-    for p_matrix, k in system.gen_probability_matrix():
+    for k in system.multiplication:
         results = []
         a_max = system.alpha_max.get(k)
         content += f"\n\nAlpha MAX: {a_max}\n"
@@ -119,16 +121,21 @@ def simulation(simulation_time=1800, repeats=1):
     simulator = Simulator(system)
     start_time = datetime.now()
 
-    for p_matrix, k in system.gen_probability_matrix():
+    for k in system.multiplication:
         results = []
         system.k = k
         a_max = system.alpha_max.get(k)
         content += f"\n\nAlpha MAX: {a_max}\n"
         for r in system.percentiles:
             alpha = a_max * r
+            params = []
+            prs = ParallelResultsStorage()
             for _ in range(repeats):
-                simulator.start(alpha=alpha, simulation_time=simulation_time)
-            results += simulator.get_results(alpha)
+                params.append((alpha, simulation_time, ))
+            with Pool() as pool:
+                prs_list = pool.starmap(simulator.start, params)
+                prs.extend(prs_list)
+            results += prs.release(k, alpha)
             results += [[]]
 
         headers = ["K, Alpha", "Metric"] + system.server_names[:k + 4]
@@ -145,5 +152,5 @@ if __name__ == '__main__':
     analytics_lambdas()
     analytics_jackson()
 
-    # simulation()
-    simulation(repeats=3)
+    simulation()
+    simulation(repeats=20)

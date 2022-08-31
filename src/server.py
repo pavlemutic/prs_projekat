@@ -1,6 +1,7 @@
 from random import choices
 from numpy.random import default_rng as random_gen
-from numpy import mean
+
+from src.prs import StorageShelf
 
 
 class Server:
@@ -9,6 +10,7 @@ class Server:
 
     def __init__(self, name, id=None, mi=None, s=None):
         self.id = id
+        self.pid = []
         self.name = name
         self._mi = mi
         self._s = self._convert_to_sec(s)
@@ -16,14 +18,6 @@ class Server:
         self.total_process_time = 0
         self.events_count = 0
         self.next_servers = {}
-
-        self._mi_sim_list = []
-        self._s_sim_list = []
-        self._lam_sim_list = []
-        self._ro_sim_list = []
-        self._u_sim_list = []
-        self._j_sim_list = []
-        self._r_sim_list = []
 
     @property
     def mi(self):
@@ -42,34 +36,6 @@ class Server:
         if self._mi:
             self._s = round(1 / self._mi, 3)
             return self._s
-
-    @property
-    def mi_sim(self):
-        return round(mean(self._mi_sim_list), 3)
-
-    @property
-    def s_sim(self):
-        return round(mean(self._s_sim_list), 3)
-
-    @property
-    def lam_sim(self):
-        return round(mean(self._lam_sim_list), 3)
-
-    @property
-    def ro_sim(self):
-        return round(mean(self._ro_sim_list), 3)
-
-    @property
-    def u_sim(self):
-        return round(mean(self._u_sim_list), 3)
-
-    @property
-    def j_sim(self):
-        return round(mean(self._j_sim_list), 3)
-
-    @property
-    def r_sim(self):
-        return round(mean(self._r_sim_list), 3)
 
     @staticmethod
     def _convert_to_sec(value):
@@ -111,24 +77,8 @@ class Server:
         j = ro / (1 - ro)
         r = j / lam
 
-        self._mi_sim_list.append(mi)
-        self._s_sim_list.append(s)
-        self._lam_sim_list.append(lam)
-        self._ro_sim_list.append(ro)
-        self._u_sim_list.append(u)
-        self._j_sim_list.append(j)
-        self._r_sim_list.append(r)
+        return StorageShelf(self.name, mi, s, lam, ro, u, j, r)
 
     def reset_counters(self):
         self.events_count = 0
         self.total_process_time = 0
-
-    def reset_calculations(self):
-        self.reset_counters()
-        self._mi_sim_list = []
-        self._s_sim_list = []
-        self._lam_sim_list = []
-        self._ro_sim_list = []
-        self._u_sim_list = []
-        self._j_sim_list = []
-        self._r_sim_list = []

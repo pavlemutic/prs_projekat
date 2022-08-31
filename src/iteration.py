@@ -42,10 +42,10 @@ class Iteration:
     @staticmethod
     def _vector_to_array(vector):
         vector = vector.flatten() if isinstance(vector, ndarray) else vector
-        return [round(item, 2) for item in vector]
+        return [round(item, 3) for item in vector]
 
     @staticmethod
     def get_iteration_name(k, alpha):
         if isinstance(alpha, ndarray):
-            alpha = round(alpha[0][0], 2)
+            alpha = round(alpha[0][0], 3)
         return f"{k}, {alpha}"
